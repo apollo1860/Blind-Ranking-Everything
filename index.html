@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Blind Ranking Everything</title>
+  <style>
+    :root{
+      --bg:#fff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --card: rgba(255,255,255,.88);
+      --border: rgba(15,23,42,.12);
+      --shadow: 0 18px 45px rgba(15,23,42,.12);
+      --shadow2: 0 10px 24px rgba(15,23,42,.10);
+      --radius: 18px;
+
+      /* 1 dunkelgrün -> 8 dunkelrot (gleiches Farbschema, nur bis 8 genutzt) */
+      --r1:#0b5d1e; --r2:#187a2d; --r3:#2e9a3c; --r4:#63b43a;
+      --r5:#d7c72c; --r6:#e7a51d; --r7:#c73c18; --r8:#7a1010;
+
+      --tap: 44px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x:hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .bg{
+      position:fixed; inset:-35vh -35vw;
+      pointer-events:none;
+      background:
+        radial-gradient(closest-side, rgba(16,185,129,.12), transparent 62%),
+        radial-gradient(closest-side, rgba(37,99,235,.10), transparent 62%),
+        radial-gradient(closest-side, rgba(239,68,68,.10), transparent 62%);
+      filter: blur(42px);
+      animation: float 14s ease-in-out infinite;
+      opacity:.85;
+    }
+    @keyframes float{
+      0%{transform:translate(-3vw,-2vh) scale(1.02)}
+      50%{transform:translate(3vw,2vh) scale(1.06)}
+      100%{transform:translate(-3vw,-2vh) scale(1.02)}
+    }
+
+    .wrap{
+      min-height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+      display:flex;
+      justify-content:center;
+    }
+    .panel{
+      width:min(680px, 100%);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .sticky{
+      position: sticky;
+      top: 8px;
+      z-index: 20;
+    }
+    .topCard{
+      border:1px solid var(--border);
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(8px);
+    }
+    .topInner{
+      padding: 10px 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .titleRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .title{
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      font-size: 16px;
+    }
+    .meta{
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .wordTap{
+      border:1px solid rgba(37,99,235,.22);
+      background: linear-gradient(180deg, rgba(37,99,235,.10), rgba(255,255,255,.85));
+      border-radius: 16px;
+      box-shadow: var(--shadow2);
+      padding: 14px 12px;
+      text-align:center;
+      cursor:pointer;
+      user-select:none;
+      transform-origin:center;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+    .wordTap:active{ transform: scale(.99); }
+    .wordTap:hover{ border-color: rgba(37,99,235,.35); }
+    .wordBig{
+      font-weight: 950;
+      letter-spacing: -0.02em;
+      font-size: clamp(26px, 6.2vw, 40px);
+      line-height: 1.05;
+    }
+    .hint{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .btn{
+      min-height: var(--tap);
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 10px 22px rgba(15,23,42,.10);
+      font-weight: 800;
+      cursor:pointer;
+      transition: transform .12s ease, box-shadow .12s ease;
+      user-select:none;
+      flex: 1;
+    }
+    .btn:active{ transform: scale(.99); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; box-shadow: 0 8px 16px rgba(15,23,42,.06); }
+    .btnPrimary{
+      border-color: rgba(16,185,129,.25);
+      background: linear-gradient(180deg, rgba(16,185,129,.12), rgba(255,255,255,.85));
+    }
+    .btnDanger{
+      border-color: rgba(239,68,68,.25);
+      background: linear-gradient(180deg, rgba(239,68,68,.12), rgba(255,255,255,.85));
+    }
+
+    .board{
+      border:1px solid var(--border);
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(8px);
+      flex: 1;
+      display:flex;
+      flex-direction:column;
+      min-height: 0;
+    }
+    .boardHead{
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+    }
+    .boardTitle{
+      font-weight: 900;
+      letter-spacing:-0.01em;
+      font-size: 14px;
+    }
+    .boardMeta{ color: var(--muted); font-size: 12px; }
+
+    .slots{
+      padding: 10px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .slot{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height: 52px;
+      padding: 10px 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(15,23,42,.10);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 18px rgba(15,23,42,.07);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, box-shadow .12s ease;
+      overflow:hidden;
+    }
+    .slot:active{ transform: scale(.995); }
+    .slot:hover{ box-shadow: 0 14px 26px rgba(15,23,42,.10); }
+    .slot::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: var(--c);
+      opacity: .14;
+      pointer-events:none;
+    }
+    .slotLeft{ display:flex; align-items:center; gap:10px; z-index:1; min-width:0; }
+    .badge{
+      width: 34px; height: 34px;
+      border-radius: 12px;
+      display:grid; place-items:center;
+      font-weight: 950;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(15,23,42,.10);
+      flex: 0 0 auto;
+    }
+    .slotWord{
+      font-weight: 900;
+      letter-spacing:-0.01em;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .slotEmpty{
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .slotRight{
+      z-index:1;
+      color: var(--muted);
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      background: rgba(15,23,42,.92);
+      color:#fff;
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.25);
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 50;
+    }
+    .toast.show{
+      opacity:1;
+      transform: translateX(-50%) translateY(-6px);
+    }
+
+    .pop{ animation: pop .32s ease; }
+    @keyframes pop{
+      0%{transform:scale(.96); opacity:.0}
+      100%{transform:scale(1); opacity:1}
+    }
+
+    .shake{ animation: shake .22s ease-in-out; }
+    @keyframes shake{
+      0%{transform:translateX(0)}
+      25%{transform:translateX(-6px)}
+      50%{transform:translateX(6px)}
+      75%{transform:translateX(-4px)}
+      100%{transform:translateX(0)}
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <div class="panel">
+
+      <div class="sticky">
+        <div class="topCard">
+          <div class="topInner">
+            <div class="titleRow">
+              <div class="title">Blind Ranking Everything</div>
+              <div class="meta" id="metaTop">Pool: 3 • ohne Wiederholung</div>
+            </div>
+
+            <div class="wordTap" id="wordTap" role="button" aria-label="Tippe für ein neues Wort">
+              <div class="wordBig" id="currentWord">Tippe hier für ein Wort</div>
+              <div class="hint" id="hint">
+                1) Tippe oben, um ein Wort zu ziehen. 2) Tippe einen freien Platz (1–8), um es zu setzen.
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btnPrimary" id="btnHelp" type="button">Kurzregeln</button>
+              <button class="btn btnDanger" id="btnReset" type="button" disabled>Neue Runde</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="board" aria-label="Ranking Board">
+        <div class="boardHead">
+          <div class="boardTitle">Dein Ranking (1 → 8)</div>
+          <div class="boardMeta" id="metaRight">Noch offen: 8</div>
+        </div>
+        <div class="slots" id="slots"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const WORD_POOL_BASE = ["Haus", "Enkel", "TikTok"];
+    const MAX_SLOTS = 8;
+
+    let availableWords = [];
+    let currentWord = null;
+    let slots = Array(MAX_SLOTS).fill(null);
+
+    const $ = (s) => document.querySelector(s);
+
+    function shuffle(arr){
+      const a = arr.slice();
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [a[i],a[j]] = [a[j],a[i]];
+      }
+      return a;
+    }
+    function rankColorVar(rank){ return `var(--r${rank})`; }
+
+    function toast(msg){
+      const t = $("#toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toast._tm);
+      toast._tm = setTimeout(()=>t.classList.remove("show"), 1500);
+    }
+
+    function shake(el){
+      el.classList.remove("shake");
+      void el.offsetWidth;
+      el.classList.add("shake");
+      setTimeout(()=>el.classList.remove("shake"), 260);
+    }
+
+    function pop(el){
+      el.classList.remove("pop");
+      void el.offsetWidth;
+      el.classList.add("pop");
+      setTimeout(()=>el.classList.remove("pop"), 380);
+    }
+
+    function updateMeta(){
+      const filled = slots.filter(Boolean).length;
+      $("#metaRight").textContent = `Noch offen: ${MAX_SLOTS - filled}`;
+      $("#btnReset").disabled = filled !== MAX_SLOTS;
+
+      if(currentWord){
+        $("#currentWord").textContent = currentWord;
+        $("#hint").innerHTML = `Tippe einen <b>freien Platz</b> (1–8), um <b>${currentWord}</b> zu setzen.`;
+      } else {
+        $("#currentWord").textContent = "Tippe hier für ein Wort";
+        $("#hint").innerHTML = `Tippe oben, um ein Wort zu ziehen. Dann tippe einen freien Platz (1–8).`;
+      }
+
+      $("#metaTop").textContent = `Pool: ${WORD_POOL_BASE.length} • übrig: ${availableWords.length}`;
+    }
+
+    function renderSlots(){
+      const host = $("#slots");
+      host.innerHTML = "";
+
+      for(let r=1;r<=MAX_SLOTS;r++){
+        const i = r-1;
+        const row = document.createElement("div");
+        row.className = "slot";
+        row.style.setProperty("--c", rankColorVar(r));
+        row.dataset.rank = String(r);
+
+        const left = document.createElement("div");
+        left.className = "slotLeft";
+
+        const badge = document.createElement("div");
+        badge.className = "badge";
+        badge.textContent = r;
+
+        const w = document.createElement("div");
+        if(slots[i]){
+          w.className = "slotWord";
+          w.textContent = slots[i];
+        } else {
+          w.className = "slotEmpty";
+          w.textContent = "— frei —";
+        }
+
+        left.appendChild(badge);
+        left.appendChild(w);
+
+        const right = document.createElement("div");
+        right.className = "slotRight";
+        right.textContent = slots[i] ? "gesetzt" : "leer";
+
+        row.appendChild(left);
+        row.appendChild(right);
+
+        row.addEventListener("click", () => placeAtRank(r, row));
+
+        host.appendChild(row);
+      }
+    }
+
+    function drawWord(){
+      if(currentWord){
+        toast("Erst platzieren – dann neues Wort!");
+        shake($("#wordTap"));
+        return;
+      }
+      if(availableWords.length === 0){
+        toast("Keine Wörter mehr im Pool!");
+        shake($("#wordTap"));
+        return;
+      }
+      currentWord = availableWords.pop();
+      pop($("#wordTap"));
+      updateMeta();
+      toast(`Gezogen: ${currentWord}`);
+    }
+
+    function placeAtRank(rank, rowEl){
+      const idx = rank - 1;
+
+      if(!currentWord){
+        toast("Tippe oben, um ein Wort zu ziehen.");
+        shake(rowEl);
+        return;
+      }
+      if(slots[idx] !== null){
+        toast("Platz ist schon belegt!");
+        shake(rowEl);
+        return;
+      }
+
+      slots[idx] = currentWord;
+      currentWord = null;
+
+      renderSlots();
+      updateMeta();
+
+      const filled = slots.filter(Boolean).length;
+      if(filled === MAX_SLOTS){
+        toast("Fertig! Neue Runde ist bereit.");
+        $("#hint").innerHTML = `Alle Plätze belegt. Tippe <b>„Neue Runde“</b>.`;
+      } else {
+        toast("Platziert!");
+      }
+    }
+
+    function newRound(){
+      availableWords = shuffle(WORD_POOL_BASE);
+      currentWord = null;
+      slots = Array(MAX_SLOTS).fill(null);
+      renderSlots();
+      updateMeta();
+      toast("Neue Runde gestartet!");
+    }
+
+    $("#wordTap").addEventListener("click", drawWord);
+    $("#btnReset").addEventListener("click", newRound);
+    $("#btnHelp").addEventListener("click", () => toast("Oben Wort tippen → Slot tippen → fertig."));
+
+    newRound();
+  </script>
+</body>
+</html>
